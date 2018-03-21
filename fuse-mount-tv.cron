@@ -1,0 +1,30 @@
+#!/bin/bash
+# Change paths for mount and log file & create mountcheck file.
+# Add script to crontab by typing crontab -e and pasting the line below (without # in front )
+# * * * * * /home/scripts/fuse-mount.cron >/dev/null 2>&1
+# Make script executable with: chmod a+x /home/scripts/fuse-mount.cron
+
+logfile="/home/scripts/logs/fuse-mount-tv.cron.log"
+
+if pidof -o %PPID -x "fuse-mount-tv.cron"; then
+echo "$(date "+%d.%m.%Y %T") EXIT: fuse-mount-tv.cron already running."
+exit 1
+fi
+
+if [[ -f "/plex/working/tv/mountcheck" ]]; then
+echo "$(date "+%d.%m.%Y %T") INFO: Check successful, fuse mounted." | tee -a "$logfile"
+exit
+else
+echo "$(date "+%d.%m.%Y %T") ERROR: Drive not mounted, remount in progress." | tee -a "$logfile"
+# Unmount before remounting
+fusermount -uz /plex/working/tv | tee -a "$logfile"
+/usr/bin/unionfs-fuse -o cow,allow_other /plex/working/local-tv=RW:/plex/working/gd-tv=RW /plex/working/tv
+
+if [[ -f "/plex/working/tv/mountcheck" ]]; then
+echo "$(date "+%d.%m.%Y %T") INFO: Remount successful." | tee -a "$logfile"
+else
+echo "$(date "+%d.%m.%Y %T") CRITICAL: Remount failed." | tee -a "$logfile"
+fi
+fi
+exit
+
